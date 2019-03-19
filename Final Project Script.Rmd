@@ -1,0 +1,144 @@
+---
+title: "R Notebook"
+output: github_document
+---
+```{r libs, message = F, warning = F, include= FALSE}
+library(tidyverse)
+library(broom)
+library(glmnet)
+library(caret)
+library(ISLR)
+library(janitor)
+library(stringr)
+library(rpart)
+library(rpart.plot)
+library(partykit) 
+library(tree)
+library(MASS)
+library(randomForest)
+library(kernlab)
+library(rvest)
+library(gbm)
+library(car)
+library(mvtnorm)
+theme_set(theme_bw())
+```
+
+```{r}
+set.seed(12010)
+setwd("C:/Users/coolj/Documents/Predictive/Project/Final-Project/")
+df<-read.csv('ProjectData.csv', header = TRUE, sep=",")
+
+df <- df %>%
+  janitor::clean_names()
+
+df
+```
+```{r}
+set.seed(2000)
+
+
+df$playoff= as.factor(df$playoff)
+df$last_year_playoff= as.factor(df$last_year_playoff)
+df$new_coach= as.factor(df$new_coach)
+
+
+#df$ega <- NULL
+#df$num_goalies <- NULL
+#df$last_year_ga <- NULL
+#df$new_coach <- NULL
+#df$num_picks <- NULL
+#df$high_pick <- NULL
+
+inTraining <- createDataPartition(df$playoff, 
+                                  p = .75,
+                                  list = F)
+training <- df[inTraining, ]
+testing  <- df[-inTraining, ]
+
+
+playoff_lda<- lda(playoff ~., data = training)
+fits <- predict(playoff_lda, newdata = testing)
+
+confusionMatrix(table(fits$class, testing$playoff), positive = "1")
+
+
+
+```
+
+```{r}
+set.seed(2000)
+fit_control <- trainControl(method = "repeatedcv",
+                           number = 10, 
+                           repeats = 10)
+playoff_cv_tree <- train(playoff ~ ., 
+                        data = training,
+                        method = "rf", 
+                        trControl = fit_control)
+
+playoff.cv.preds<-predict(playoff_cv_tree, newdata = testing)
+confusionMatrix(table(playoff.cv.preds, testing$playoff), 
+                 positive = "1")
+
+
+
+```
+
+```{r}
+set.seed(2000)
+playoff_cv_tree2 <- train(playoff ~ ., 
+                      data = training,
+                      method = "rf",
+                      ntree = 500,
+                      importance = T,
+                      tuneGrid = data.frame(mtry = 1:13))
+playoff.cv.preds2<-predict(playoff_cv_tree2, newdata = testing)
+confusionMatrix(table(playoff.cv.preds2, testing$playoff), 
+                 positive = "1")
+```
+
+
+
+```{r}
+set.seed(2000)
+playoff_svc <-ksvm(playoff~. , data = training,type = "C-svc", kernel ='vanilladot', prob.model = TRUE)
+
+playoff.svc.preds<-predict(playoff_svc, newdata = testing)
+confusionMatrix(table(playoff.svc.preds, testing$playoff), 
+                 positive = "1")
+```
+```{r}
+set.seed(2000)
+fit_control <-trainControl(method = "repeatedcv",number = 10,repeats = 10)
+
+playoff_train <-train(playoff~.,data = training,method = "svmLinear",trControl = fit_control,tuneGrid =data.frame(C = 1:20))
+
+playoff.train.preds<-predict(playoff_train, newdata = testing)
+confusionMatrix(table(playoff.train.preds, testing$playoff), 
+                 positive = "1")
+
+plot(playoff_train)
+```
+
+
+
+
+```{r}
+set.seed(2000)
+playoff_rf <- randomForest( formula = playoff ~., data=training)
+
+playoff_rf_preds <- predict(playoff_rf, newdata = testing)
+
+
+confusionMatrix(table(playoff_rf_preds, testing$playoff), 
+                 positive = "1")
+```
+
+
+
+
+
+
+
+
+
